@@ -23,10 +23,18 @@ import java.nio.file.Paths
  */
 class ExampleGame(mapName: String) : Game(name = "ExampleGame", mapName = mapName) {
 
-    init {
+    /**
+     * All games must override the `initialize` method and use it to register modules.
+     */
+    override fun initialize() {
         use(VoidDeathModule(threshold = 0.0)) // Players will instantly be killed when they're below y = 0.0
         use(CountdownModule(threshold = 2, countdownSeconds = 5)) // Starts a countdown when the game has 2 players, counting down from 5 seconds
         use(MyModule()) // When MyModule is used, its initialize method is called and its event node is added as a child to the game's event node.
+        { myModuleInstance ->
+            // You can optionally specify a callback to be run once the module is registered.
+            // This is useful for defining logic that depends on a module.
+            myModuleInstance.sayHello()
+        }
         use(WinModule()) // The WinModule handles many common tasks related to declaring a winner for a game.
         use(AnvilFileMapProviderModule(Paths.get("worlds/$name/$mapName"))) // This module loads a map from a file path, but it does not define how instances should be created with it.
         use(SharedInstanceModule()) // This module uses the above module to load a world, then creates a SharedInstance for this game using the map.
@@ -37,10 +45,6 @@ class ExampleGame(mapName: String) : Game(name = "ExampleGame", mapName = mapNam
             // Note: internally, using [handleEvent] uses a module so that this event listener can easily be unregistered at any time.
             event.player.exp += 10
         }
-
-        // Games call the "ready" method to show that they've initialized successfully and are ready to receive players.
-        // By default, if games are not ready within 15 seconds, they will be shut down and removed.
-        ready()
     }
 
     /**
@@ -62,8 +66,8 @@ class ExampleGame(mapName: String) : Game(name = "ExampleGame", mapName = mapNam
      * the game which the module is a part of.
      *
      * Modules can specify dependencies with the @[DependsOn] annotation. Modules cannot be initialized
-     * before all of their dependencies are initialized. Calling the [ready] method ensures all modules'
-     * dependencies are met before allowing players to join the game.
+     * before all of their dependencies are initialized. Soft dependencies are registered with
+     * @[com.bluedragonmc.server.module.SoftDependsOn].
      */
     @DependsOn(WinModule::class)
     class MyModule : GameModule() {
@@ -80,9 +84,15 @@ class ExampleGame(mapName: String) : Game(name = "ExampleGame", mapName = mapNam
             }
         }
 
+        fun sayHello() {
+            // Modules automatically get a `logger`
+            logger.info("Hello, world!")
+        }
+
         override fun deinitialize() {
             // The "deinitialize" method is called when a module is unregistered.
             // All modules are unregistered when a game ends.
+            // The module's event node is unregistered automatically right after `deinitialize` is called.
             // Note: this method does not have to be implemented, and the default behavior is a no-op.
         }
     }
